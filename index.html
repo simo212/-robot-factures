@@ -54,7 +54,7 @@ body{padding-bottom:92px}
 .calendar-item{border-left:4px solid #64748b;background:#121d2d;border-radius:10px;padding:12px 14px;margin:9px 0}.calendar-item.warn{border-left-color:#f59e0b}.calendar-item.late{border-left-color:#ef4444}.calendar-item.ok{border-left-color:#10b981}
 .note31{font-size:12px;color:#8fa0b8;line-height:1.45;margin-top:10px}
 </style></head><body><main>
-<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.1</b></div></div><span class="badge" id="status">Prêt</span></header>
+<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.1.2</b></div></div><span class="badge" id="status">Prêt</span></header>
 <nav class="tabs" style="display:none" aria-label="Navigation">
 <button class="tab active" data-view="dashboard">Dashboard</button>
 <button class="tab" data-view="import">Facture</button>
@@ -97,14 +97,14 @@ body{padding-bottom:92px}
     <label class="btn alt" for="restore31">Restaurer</label>
     <input id="restore31" type="file" accept="application/json" style="display:none">
   </div>
-  <div class="note31">Les données restent dans le stockage local de l’iPhone. Les réglages permettent d’adapter les taux sans modifier le code.</div>
+  <div class="note31">Navigation : V3.1.2 iOS ✓</div><div class="note31">Les données restent dans le stockage local de l’iPhone. Les réglages permettent d’adapter les taux sans modifier le code.</div>
 </section>
 
 <nav class="bottomnav" id="bottomnav31">
- <button class="active" data-v31="supervision"><i>◉</i>Supervision</button>
- <button data-v31="factures"><i>▤</i>Factures</button>
- <button data-v31="calendar"><i>▦</i>Calendrier</button>
- <button data-v31="settings"><i>⚙</i>Réglages</button>
+ <button class="active" data-v31="supervision" onclick="rf31View('supervision')"><i>◉</i>Supervision</button>
+ <button data-v31="factures" onclick="rf31View('factures')"><i>▤</i>Factures</button>
+ <button data-v31="calendar" onclick="rf31View('calendar')"><i>▦</i>Calendrier</button>
+ <button data-v31="settings" onclick="rf31View('settings')"><i>⚙</i>Réglages</button>
 </nav>
 
 <div id="dashboard" class="view" style="display:none">
@@ -317,12 +317,21 @@ function rf31Render(){
  $("calendar31").innerHTML=cal.map(x=>{let now=new Date(),cl=x.paid?"ok":(now>x.date?"late":"warn");return `<div class="calendar-item ${cl}"><b>${x.title}</b><div>${fm(x.date)} • ${x.paid?"Payé":"À suivre"}</div></div>`}).join("");
 }
 function rf31View(name){
- document.querySelectorAll(".v31view").forEach(v=>v.classList.toggle("active",v.id==="v31-"+name));
- document.querySelectorAll("[data-v31]").forEach(b=>b.classList.toggle("active",b.dataset.v31===name));
- if(name==="supervision"||name==="factures"||name==="calendar")rf31Render();
+ try{
+   document.querySelectorAll(".v31view").forEach(v=>{
+     const active=v.id==="v31-"+name;
+     v.classList.toggle("active",active);
+     v.style.display=active?"block":"none";
+   });
+   document.querySelectorAll("[data-v31]").forEach(b=>b.classList.toggle("active",b.dataset.v31===name));
+   window.scrollTo({top:0,behavior:"instant"});
+   if(name==="supervision"||name==="factures"||name==="calendar"){
+     try{rf31Render()}catch(e){console.error("render",e)}
+   }
+ }catch(e){console.error("navigation",e)}
 }
-document.querySelectorAll("[data-v31]").forEach(b=>b.onclick=()=>rf31View(b.dataset.v31));
-$("v31AddInvoice").onclick=()=>$("file").click();
+/* Navigation V3.1.2 gérée par onclick inline pour compatibilité iOS PWA */
+$("v31AddInvoice").onclick=()=>{const f=$("file");if(f)f.click();else alert("Sélecteur PDF indisponible");};
 
 let cfg=rf31Settings();$("setUrssaf").value=cfg.urssaf;$("setCfp").value=cfg.cfp;$("setVat").value=cfg.vat;$("setDeduct").value=cfg.deductible;$("setLag").value=cfg.lag;
 $("saveSettings31").onclick=()=>{
