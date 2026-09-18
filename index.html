@@ -21,8 +21,15 @@ header,.row{display:flex;justify-content:space-between;align-items:center;gap:10
 
 .diag{font-size:13px;line-height:1.65;background:#111b2a;border:1px solid #334155;border-radius:14px;padding:12px;margin-top:14px}
 .diag .yes{color:#6ee7b7}.diag .no{color:#fda4af}
+
+.actions2{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}
+.act{border:1px solid #3a4a62;background:#202d41;color:#fff;border-radius:12px;padding:11px;font-weight:700}
+.act.done{background:#123d32;border-color:#24745e;color:#7ef0c6}
+.summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.sum{background:#111b2a;border-radius:14px;padding:12px}.sum span{display:block;color:#94a3b8;font-size:12px}.sum b{font-size:18px}
+.backup{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.backup button,.backup label{font-size:13px}
 </style></head><body><main>
-<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V2.3</b></div></div><span class="badge" id="status">Prêt</span></header>
+<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.0</b></div></div><span class="badge" id="status">Prêt</span></header>
 <nav class="tabs" aria-label="Navigation">
 <button class="tab active" data-view="dashboard">Dashboard</button>
 <button class="tab" data-view="import">Facture</button>
@@ -34,14 +41,20 @@ header,.row{display:flex;justify-content:space-between;align-items:center;gap:10
 <section class="card hidden" id="inv"><b id="ref"></b><div class="line" id="detail"></div></section>
 </div><div id="dashboard2" class="view"><section class="grid">
 <div class="card"><div class="row"><div><b>URSSAF</b><div class="muted">Cotisations + CFP</div></div><span class="badge" id="ubs">En attente</span></div>
-<div class="amount" id="ur">0,00 €</div><div class="line" id="uca">CA : 0,00 €</div><div class="line" id="uopen">Ouverture : —</div><div class="line strong" id="udue">Paiement : —</div></div>
+<div class="amount" id="ur">0,00 €</div><div class="line" id="uca">CA : 0,00 €</div><div class="line" id="uopen">Ouverture : —</div><div class="line strong" id="udue">Paiement : —</div>
+<div class="actions2"><button class="act" id="udecl">Déclaré</button><button class="act" id="upaid">Payé</button></div></div>
 <div class="card"><div class="row"><div><b>TVA — CA3</b><div class="muted">TVA nette</div></div><span class="badge" id="tbs">En attente</span></div>
-<div class="amount" id="tv">0,00 €</div><div class="line" id="tcol">TVA collectée : 0,00 €</div><div class="line" id="topen">Ouverture : —</div><div class="line strong" id="tdue">Paiement : —</div></div></section>
+<div class="amount" id="tv">0,00 €</div><div class="line" id="tcol">TVA collectée : 0,00 €</div><div class="line" id="topen">Ouverture : —</div><div class="line strong" id="tdue">Paiement : —</div>
+<div class="actions2"><button class="act" id="tdecl">Déclaré</button><button class="act" id="tpaid">Payé</button></div></div></section>
 <section class="card"><div class="muted">TOTAL À RÉSERVER</div><div class="total" id="total">0,00 €</div></section>
-</div><div id="historyView" class="view hiddenView"><section class="card"><div class="row"><b>Historique local</b><button class="btn alt" id="clear">Effacer</button></div><div id="history"></div></section></div>
+</div><div id="historyView" class="view hiddenView"><section class="card"><div class="row"><b>Historique local</b><button class="btn alt" id="clear">Effacer</button></div><div id="history"></div>
+<div class="backup"><button class="btn alt" id="exportData">Sauvegarder</button>
+<label class="btn alt" for="restoreData">Restaurer</label><input id="restoreData" type="file" accept="application/json"></div>
+</section></div>
 <script type="module">
 import * as pdfjs from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
 pdfjs.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+let currentInvoice=null;
 const $=x=>document.getElementById(x),eur=x=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"}).format(x||0);
 const mois=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
 const fm=d=>`${d.getDate()} ${mois[d.getMonth()]} ${d.getFullYear()}`, add=(d,n)=>new Date(d.getFullYear(),d.getMonth()+n,1);
@@ -115,12 +128,41 @@ function diagnostics(d){
 
 function reset(){["ur","tv","total"].forEach(x=>$(x).textContent="0,00 €");$("uca").textContent="CA : 0,00 €";$("tcol").textContent="TVA collectée : 0,00 €";
 $("uopen").textContent=$("topen").textContent="Ouverture : —";$("udue").textContent=$("tdue").textContent="Paiement : —";$("ubs").textContent=$("tbs").textContent="En attente";$("inv").classList.add("hidden");$("diag").classList.add("hidden");$("status").textContent="Prêt"}
-function show(d){let period=add(d.date,2),op=add(period,1),ud=add(op,1),to=new Date(op.getFullYear(),op.getMonth(),12),td=new Date(op.getFullYear(),op.getMonth(),16);
+function show(d){currentInvoice=d;let period=add(d.date,2),op=add(period,1),ud=add(op,1),to=new Date(op.getFullYear(),op.getMonth(),12),td=new Date(op.getFullYear(),op.getMonth(),16);
 let ur=d.ht*.258,tv=d.tva,total=ur+tv;$("ur").textContent=eur(ur);$("uca").textContent=`CA : ${eur(d.ht)}`;$("uopen").textContent=`Ouverture : ${fm(op)}`;$("udue").textContent=`Paiement : ${fm(ud)}`;
 $("tv").textContent=eur(tv);$("tcol").textContent=`TVA collectée : ${eur(tv)}`;$("topen").textContent=`Ouverture : ${fm(to)}`;$("tdue").textContent=`Paiement : ${fm(td)}`;$("total").textContent=eur(total);
-const now=new Date();function badge(el,opening,due){el.classList.remove("ok","warn","late");if(now<opening){el.textContent="À préparer";el.classList.add("ok")}else if(now<=due){el.textContent="Ouvert";el.classList.add("warn")}else{el.textContent="Échéance passée";el.classList.add("late")}}badge($("ubs"),op,ud);badge($("tbs"),to,td);$("ref").textContent=d.ref;$("detail").textContent=`${fm(d.date)} • HT ${eur(d.ht)} • TVA ${eur(d.tva)} • TTC ${eur(d.ttc)}`;$("inv").classList.remove("hidden");$("status").textContent="Calculé"}
+const now=new Date();function badge(el,opening,due){el.classList.remove("ok","warn","late");if(now<opening){el.textContent="À préparer";el.classList.add("ok")}else if(now<=due){el.textContent="Ouvert";el.classList.add("warn")}else{el.textContent="Échéance passée";el.classList.add("late")}}badge($("ubs"),op,ud);badge($("tbs"),to,td);$("ref").textContent=d.ref;$("detail").textContent=`${fm(d.date)} • HT ${eur(d.ht)} • TVA ${eur(d.tva)} • TTC ${eur(d.ttc)}`;$("inv").classList.remove("hidden");$("status").textContent="Calculé";restoreFlags(d.ref)}
 function hist(){let h=JSON.parse(localStorage.getItem("rfh")||"[]");$("history").innerHTML=h.length?h.map((x,i)=>`<div class="hist"><div><b>${x.ref}</b><div class="muted">${new Date(x.date).toLocaleDateString("fr-FR")} • ${eur(x.ttc)}</div></div><button type="button" data-hi="${i}">Afficher</button></div>`).join(""):'<div class="muted" style="padding-top:12px">Aucune facture.</div>';document.querySelectorAll("[data-hi]").forEach(b=>b.addEventListener("click",()=>{let x=h[+b.dataset.hi];x.date=new Date(x.date);show(x);selectView("dashboard")}))}
 function save(d){let h=JSON.parse(localStorage.getItem("rfh")||"[]").filter(x=>x.ref!==d.ref);h.unshift({...d,date:d.date.toISOString()});localStorage.setItem("rfh",JSON.stringify(h.slice(0,50)));hist()}
+
+
+function states(){return JSON.parse(localStorage.getItem("rfstates")||"{}")}
+function saveStates(s){localStorage.setItem("rfstates",JSON.stringify(s))}
+function restoreFlags(ref){
+ const s=states()[ref]||{};
+ [["udecl","u_decl"],["upaid","u_paid"],["tdecl","t_decl"],["tpaid","t_paid"]].forEach(([id,k])=>{
+   $(id).classList.toggle("done",!!s[k]);$(id).textContent=s[k]?(k.includes("paid")?"✓ Payé":"✓ Déclaré"):(k.includes("paid")?"Payé":"Déclaré");
+ });
+ if(s.u_paid){$("ubs").textContent="Payé";$("ubs").className="badge ok"}
+ if(s.t_paid){$("tbs").textContent="Payé";$("tbs").className="badge ok"}
+}
+function toggleFlag(key){
+ if(!currentInvoice)return;
+ let all=states(),s=all[currentInvoice.ref]||{};s[key]=!s[key];s[key+"_at"]=s[key]?new Date().toISOString():null;all[currentInvoice.ref]=s;saveStates(all);show(currentInvoice)
+}
+[["udecl","u_decl"],["upaid","u_paid"],["tdecl","t_decl"],["tpaid","t_paid"]].forEach(([id,k])=>$(id).addEventListener("click",()=>toggleFlag(k)));
+
+$("exportData").addEventListener("click",()=>{
+ const payload={version:3,history:JSON.parse(localStorage.getItem("rfh")||"[]"),states:states()};
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="robot-factures-sauvegarde.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+});
+$("restoreData").addEventListener("change",async e=>{
+ const f=e.target.files[0];if(!f)return;
+ try{const d=JSON.parse(await f.text());if(!Array.isArray(d.history))throw Error("sauvegarde invalide");
+ localStorage.setItem("rfh",JSON.stringify(d.history));localStorage.setItem("rfstates",JSON.stringify(d.states||{}));hist();$("msg").textContent="Sauvegarde restaurée."}
+ catch(err){$("msg").textContent="Restauration impossible : "+err.message}
+});
 
 function selectView(name){
  document.querySelectorAll(".view").forEach(v=>v.classList.add("hiddenView"));
