@@ -22,7 +22,7 @@ header,.row{display:flex;justify-content:space-between;align-items:center;gap:10
 .diag{font-size:13px;line-height:1.65;background:#111b2a;border:1px solid #334155;border-radius:14px;padding:12px;margin-top:14px}
 .diag .yes{color:#6ee7b7}.diag .no{color:#fda4af}
 </style></head><body><main>
-<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V2.2</b></div></div><span class="badge" id="status">Prêt</span></header>
+<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V2.3</b></div></div><span class="badge" id="status">Prêt</span></header>
 <nav class="tabs" aria-label="Navigation">
 <button class="tab active" data-view="dashboard">Dashboard</button>
 <button class="tab" data-view="import">Facture</button>
@@ -48,31 +48,66 @@ const fm=d=>`${d.getDate()} ${mois[d.getMonth()]} ${d.getFullYear()}`, add=(d,n)
 const n=s=>Number(String(s).replace(/\s/g,"").replace(",",".").replace(/[^0-9.]/g,""));
 function parse(t){
  const raw=t.replace(/\u00a0/g," ").replace(/\s+/g," ").trim();
- let ref=(raw.match(/\b(ACENSI\d{2}-\d{4}-\d+)\b/i)||raw.match(/Référence\s*(?:de\s*)?facture\s*[:\-]?\s*([A-Z0-9\-_/]+)/i)||[])[1]||"Facture";
+
+ let ref=(raw.match(/\b(ACENSI\d{2}-\d{4}-\d+)\b/i)
+       ||raw.match(/Référence\s*(?:de\s*)?facture\s*[:\-]?\s*([A-Z0-9\-_/]+)/i)
+       ||[])[1]||"Facture";
+
  let dm=raw.match(/\b([0-3]?\d)[\-/.]([01]?\d)[\-/.](20\d{2})\b/);
  let date=dm?new Date(+dm[3],+dm[2]-1,+dm[1]):null;
- const num=s=>{if(s==null)return null;let v=String(s).replace(/\s/g,"").replace(/€/g,"").replace(",",".").replace(/[^0-9.-]/g,"");let x=Number(v);return Number.isFinite(x)?x:null};
- const amounts=[...raw.matchAll(/([0-9][0-9 \u00a0]*[,.][0-9]{2})\s*€/g)].map(m=>num(m[1]));
+
+ const num=s=>{
+   if(s==null)return null;
+   let v=String(s).replace(/\s/g,"").replace(/€/g,"");
+   if(v.includes(",") && v.includes(".")) v=v.replace(/\./g,"").replace(",",".");
+   else v=v.replace(",",".");
+   v=v.replace(/[^0-9.-]/g,"");
+   const x=Number(v); return Number.isFinite(x)?x:null;
+ };
+
+ // IMPORTANT iPhone/PDF.js : le symbole € peut être extrait séparément.
+ // On ne l'exige donc plus. On analyse la zone des totaux et tous ses nombres décimaux.
  let ht=null,tva=null,ttc=null;
- // Recherche d'un triplet cohérent HT + TVA = TTC, robuste à l'ordre des libellés PDF.
- for(let i=0;i<amounts.length;i++)for(let j=i+1;j<amounts.length;j++)for(let k=j+1;k<amounts.length;k++){
-   if(amounts[i]>0 && amounts[j]>0 && Math.abs(amounts[i]+amounts[j]-amounts[k])<0.05){ht=amounts[i];tva=amounts[j];ttc=amounts[k];}
+ let pos=raw.search(/Total\s*HT/i);
+ let zone=pos>=0 ? raw.slice(pos) : raw;
+
+ const decimalPattern=/\b([0-9]{1,3}(?:[ .][0-9]{3})*(?:,[0-9]{2})|[0-9]+,[0-9]{2}|[0-9]+\.[0-9]{2})\b/g;
+ let vals=[...zone.matchAll(decimalPattern)].map(m=>num(m[1])).filter(x=>x!==null && x>0);
+
+ // Cherche le triplet comptable cohérent : HT + TVA = TTC.
+ // Exemple facture : 7840 + 1568 = 9408.
+ let best=null;
+ for(let i=0;i<vals.length;i++){
+   for(let j=i+1;j<vals.length;j++){
+     for(let k=j+1;k<vals.length;k++){
+       if(Math.abs((vals[i]+vals[j])-vals[k])<0.06){
+         // privilégie les montants importants et le triplet le plus tardif
+         let score=vals[k]+k;
+         if(!best || score>best.score) best={ht:vals[i],tva:vals[j],ttc:vals[k],score};
+       }
+     }
+   }
  }
- // Facture ACENSI : si plusieurs prix existent, privilégie le dernier triplet cohérent.
+ if(best){ht=best.ht;tva=best.tva;ttc=best.ttc}
+
+ // Secours spécifique aux factures à TVA 20 % :
+ // recherche deux montants où TTC ≈ HT × 1,20.
  if(ht===null){
-   const zonePos=raw.search(/Total\s*HT/i), zone=zonePos>=0?raw.slice(zonePos):raw;
-   const v=[...zone.matchAll(/([0-9][0-9 \u00a0]*[,.][0-9]{2})\s*€/g)].map(m=>num(m[1]));
-   for(let i=0;i<v.length;i++)for(let j=i+1;j<v.length;j++)for(let k=j+1;k<v.length;k++)
-     if(Math.abs(v[i]+v[j]-v[k])<0.05){ht=v[i];tva=v[j];ttc=v[k];}
+   for(let i=0;i<vals.length;i++) for(let j=i+1;j<vals.length;j++){
+     if(Math.abs(vals[i]*1.20-vals[j])<0.06){
+       ht=vals[i];ttc=vals[j];tva=Math.round((ttc-ht)*100)/100;
+     }
+   }
  }
- return {ref,date,ht,tva,ttc};
+
+ return {ref,date,ht,tva,ttc,debugCount:vals.length};
 }
 function diagnostics(d){
  const rows=[
   ["Date",!!d.date,d.date?fm(d.date):"non reconnue"],
   ["HT",d.ht!==null,d.ht!==null?eur(d.ht):"non reconnu"],
   ["TVA",d.tva!==null,d.tva!==null?eur(d.tva):"non reconnue"],
-  ["TTC",d.ttc!==null,d.ttc!==null?eur(d.ttc):"non reconnu"]
+  ["TTC",d.ttc!==null,d.ttc!==null?eur(d.ttc):"non reconnu"],["Nombres PDF détectés",true,String(d.debugCount??0)]
  ];
  $("diag").innerHTML="<b>Diagnostic PDF</b><br>"+rows.map(r=>`<span class="${r[1]?"yes":"no"}">${r[1]?"✓":"✕"} ${r[0]} : ${r[2]}</span>`).join("<br>");
  $("diag").classList.remove("hidden");
