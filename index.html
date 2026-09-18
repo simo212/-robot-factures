@@ -54,7 +54,7 @@ body{padding-bottom:92px}
 .calendar-item{border-left:4px solid #64748b;background:#121d2d;border-radius:10px;padding:12px 14px;margin:9px 0}.calendar-item.warn{border-left-color:#f59e0b}.calendar-item.late{border-left-color:#ef4444}.calendar-item.ok{border-left-color:#10b981}
 .note31{font-size:12px;color:#8fa0b8;line-height:1.45;margin-top:10px}
 </style></head><body><main>
-<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.1.2</b></div></div><span class="badge" id="status">Prêt</span></header>
+<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.1.3</b></div></div><span class="badge" id="status">Prêt</span></header>
 <nav class="tabs" style="display:none" aria-label="Navigation">
 <button class="tab active" data-view="dashboard">Dashboard</button>
 <button class="tab" data-view="import">Facture</button>
@@ -101,10 +101,10 @@ body{padding-bottom:92px}
 </section>
 
 <nav class="bottomnav" id="bottomnav31">
- <button class="active" data-v31="supervision" onclick="rf31View('supervision')"><i>◉</i>Supervision</button>
- <button data-v31="factures" onclick="rf31View('factures')"><i>▤</i>Factures</button>
- <button data-v31="calendar" onclick="rf31View('calendar')"><i>▦</i>Calendrier</button>
- <button data-v31="settings" onclick="rf31View('settings')"><i>⚙</i>Réglages</button>
+ <button class="active" id="navSupervision" data-v31="supervision"><i>◉</i>Supervision</button>
+ <button id="navFactures" data-v31="factures"><i>▤</i>Factures</button>
+ <button id="navCalendar" data-v31="calendar"><i>▦</i>Calendrier</button>
+ <button id="navSettings" data-v31="settings"><i>⚙</i>Réglages</button>
 </nav>
 
 <div id="dashboard" class="view" style="display:none">
@@ -344,6 +344,7 @@ $("export31").onclick=()=>{
 };
 $("restore31").onchange=async e=>{try{let d=JSON.parse(await e.target.files[0].text());if(!Array.isArray(d.history))throw Error("format invalide");localStorage.setItem("rfh",JSON.stringify(d.history));localStorage.setItem("rf31_period_states",JSON.stringify(d.periodStates||{}));localStorage.setItem(RF31_KEY,JSON.stringify(d.settings||rf31Settings()));location.reload()}catch(err){$("status").textContent="Restauration impossible"}};
 
+window.rf31RenderPublic=rf31Render;
 // Après chaque import réussi, recalculer toute la supervision.
 const rf31Obs=new MutationObserver(()=>{if($("status").textContent==="Calculé")setTimeout(rf31Render,0)});
 rf31Obs.observe($("status"),{childList:true,subtree:true});
@@ -366,4 +367,40 @@ let pdf=await pdfjs.getDocument({data:await f.arrayBuffer()}).promise,t="";for(l
 let d=parse(t);diagnostics(d);if(!d.date||d.ht===null||d.tva===null||d.ttc===null){let m=[];if(!d.date)m.push("date");if(d.ht===null)m.push("HT");if(d.tva===null)m.push("TVA");if(d.ttc===null)m.push("TTC");throw Error("champ(s) non reconnu(s) : "+m.join(", "))}show(d);save(d);selectView("dashboard");$("msg").textContent="Facture analysée, dashboard actualisé."}catch(e){reset();$("status").textContent="À vérifier";$("msg").textContent="Analyse impossible : "+e.message}});
 $("reset").addEventListener("click",()=>{reset();$("file").value="";$("msg").textContent="Dashboard réinitialisé."});$("clear").addEventListener("click",()=>{localStorage.removeItem("rfh");hist()});hist();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js");
-</script></main></body></html>
+</script></main>
+<script>
+(function(){
+  function switchView(name){
+    var views=document.querySelectorAll(".v31view");
+    for(var i=0;i<views.length;i++){
+      var active=views[i].id==="v31-"+name;
+      views[i].style.display=active?"block":"none";
+      if(active) views[i].classList.add("active"); else views[i].classList.remove("active");
+    }
+    var buttons=document.querySelectorAll("#bottomnav31 [data-v31]");
+    for(var j=0;j<buttons.length;j++){
+      if(buttons[j].getAttribute("data-v31")===name) buttons[j].classList.add("active");
+      else buttons[j].classList.remove("active");
+    }
+    window.scrollTo(0,0);
+    // Ask the module engine to refresh only if it is available.
+    try { if(typeof window.rf31RenderPublic==="function") window.rf31RenderPublic(); } catch(e){}
+  }
+  function bind(id,name){
+    var el=document.getElementById(id);
+    if(el) el.addEventListener("click",function(ev){ev.preventDefault();switchView(name);},{passive:false});
+  }
+  function initNav(){
+    bind("navSupervision","supervision");
+    bind("navFactures","factures");
+    bind("navCalendar","calendar");
+    bind("navSettings","settings");
+    switchView("supervision");
+  }
+  window.rf31SwitchView=switchView;
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",initNav);
+  else initNav();
+})();
+</script>
+
+</body></html>
