@@ -60,7 +60,7 @@ body{padding-bottom:92px}
 .enc-sheet .row{display:grid;grid-template-columns:1fr 1.4fr;gap:9px}.secondary31{border:1px solid #41536d;background:#202d41;color:#fff;border-radius:13px;padding:13px;font-weight:800}
 .period-source{font-size:12px;color:#93c5fd;margin-top:6px}
 </style></head><body><main>
-<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.2.3</b></div></div><span class="badge" id="status">Prêt</span></header>
+<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.3</b></div></div><span class="badge" id="status">Prêt</span></header>
 <nav class="tabs" style="display:none" aria-label="Navigation">
 <button class="tab active" data-view="dashboard">Dashboard</button>
 <button class="tab" data-view="import">Facture</button>
@@ -113,22 +113,18 @@ body{padding-bottom:92px}
  <div class="enc-sheet">
   <h3>Date d’encaissement</h3>
   <p id="encSummary">La période fiscale est déterminée par la date à laquelle le règlement est réellement reçu.</p>
+  <label for="encDate" style="display:block;color:#9cacbf;margin-top:8px">Date d’encaissement</label>
   <input id="encDate" type="date">
-  <div class="row"><button id="encCancel" class="secondary31">Annuler</button><button id="encValidate" class="primary31" style="margin:0">Valider l’encaissement</button></div>
- </div>
-</div>
 
-<div id="payModal" class="enc-modal">
- <div class="enc-sheet">
-  <h3 id="payTitle">Date exacte de paiement</h3>
-  <p id="paySummary">Sélectionne la date à laquelle le paiement a réellement été effectué.</p>
-  <label for="payDate" style="display:block;color:#9cacbf;margin-top:8px">Date de paiement</label>
-  <input id="payDate" type="date">
-  <div class="row">
-   <button id="payCancel" class="secondary31">Annuler</button>
-   <button id="payValidate" class="primary31" style="margin:0">Valider la date</button>
-  </div>
-  <button id="payRemove" class="secondary31" style="width:100%;margin-top:10px;display:none">Retirer le statut « Payé »</button>
+  <label for="encUrssafPayDate" style="display:block;color:#9cacbf;margin-top:8px">Date de paiement URSSAF</label>
+  <input id="encUrssafPayDate" type="date">
+  <div class="note31" style="margin-top:-5px">Laisse vide si le paiement n’a pas encore été effectué.</div>
+
+  <label for="encTvaPayDate" style="display:block;color:#9cacbf;margin-top:12px">Date de paiement TVA</label>
+  <input id="encTvaPayDate" type="date">
+  <div class="note31" style="margin-top:-5px">Laisse vide si le paiement n’a pas encore été effectué.</div>
+
+  <div class="row" style="margin-top:16px"><button id="encCancel" class="secondary31">Annuler</button><button id="encValidate" class="primary31" style="margin:0">Valider la facture</button></div>
  </div>
 </div>
 
@@ -341,36 +337,18 @@ function rf31Render(){
  <div class="fiscal-amount">${rf31Money(urssaf)}</div><div class="meta31"><span>CA à déclarer : <b>${rf31Money(ca)}</b></span>
  <span>Ouverture : <b>${fm(due.urssafOpen)}</b></span><span>Date limite : <b>${fm(due.urssafDue)}</b></span>${st.u_paid_at?`<span>Payé le : <b>${new Date(st.u_paid_at).toLocaleDateString("fr-FR")}</b></span>`:""}</div>
  <div class="actions2"><button class="act ${st.u_decl?"done":""}" data-ps="u_decl">${st.u_decl?"✓ Déclaré":"Déclaré"}</button></div>
- <div style="margin-top:14px"><label for="uPayDate" style="display:block;color:#9cacbf;margin-bottom:7px">Date exacte de paiement URSSAF</label>
- <input id="uPayDate" type="date" value="${st.u_paid_at?String(st.u_paid_at).slice(0,10):""}" style="width:100%;box-sizing:border-box;font-size:17px">
- <button id="uPaySave" class="act ${st.u_paid?"done":""}" style="width:100%;margin-top:9px">${st.u_paid?"✓ Paiement enregistré":"Enregistrer le paiement"}</button></div></div>
+ </div>
  <div class="fiscal-card"><div class="fiscal-head"><h3>TVA — CA3</h3><span class="pill ${vs[1]}">${vs[0]}</span></div>
  <div class="fiscal-amount">${rf31Money(vatNet)}</div><div class="meta31"><span>TVA collectée : <b>${rf31Money(vat)}</b></span><span>TVA déductible : <b>${rf31Money(s.deductible)}</b></span>
  <span>Ouverture : <b>${fm(due.vatOpen)}</b></span><span>Date limite : <b>${fm(due.vatDue)}</b></span>${st.t_paid_at?`<span>Payé le : <b>${new Date(st.t_paid_at).toLocaleDateString("fr-FR")}</b></span>`:""}</div>
  <div class="actions2"><button class="act ${st.t_decl?"done":""}" data-ps="t_decl">${st.t_decl?"✓ Déclaré":"Déclaré"}</button></div>
- <div style="margin-top:14px"><label for="tPayDate" style="display:block;color:#9cacbf;margin-bottom:7px">Date exacte de paiement TVA</label>
- <input id="tPayDate" type="date" value="${st.t_paid_at?String(st.t_paid_at).slice(0,10):""}" style="width:100%;box-sizing:border-box;font-size:17px">
- <button id="tPaySave" class="act ${st.t_paid?"done":""}" style="width:100%;margin-top:9px">${st.t_paid?"✓ Paiement enregistré":"Enregistrer le paiement"}</button></div></div>`;
+ </div>`;
  document.querySelectorAll("[data-ps]").forEach(b=>b.onclick=()=>{
   const key=b.dataset.ps;
   let cur=rf31GetState(rf31SelectedMonth);
   rf31SaveState(rf31SelectedMonth,key,!cur[key]);
   rf31Render();
 });
-function saveNativePayment(key,inputId){
- const el=$(inputId), v=el?el.value:"";
- if(!v){$("status").textContent="Choisis d’abord une date dans le calendrier."; if(el)el.focus(); return;}
- let a=JSON.parse(localStorage.getItem("rf31_period_states")||"{}");
- a[rf31SelectedMonth]=a[rf31SelectedMonth]||{};
- a[rf31SelectedMonth][key]=true;
- a[rf31SelectedMonth][key+"_at"]=v+"T12:00:00";
- localStorage.setItem("rf31_period_states",JSON.stringify(a));
- $("status").textContent="Date de paiement enregistrée";
- rf31Render();
-}
-const ub=$("uPaySave"), tb=$("tPaySave");
-if(ub) ub.onclick=()=>saveNativePayment("u_paid","uPayDate");
-if(tb) tb.onclick=()=>saveNativePayment("t_paid","tPayDate");
 
  $("invoiceCount").textContent=rf31Invoices().length+" facture"+(rf31Invoices().length>1?"s":"");
  $("invoiceList31").innerHTML=rf31Invoices().sort((a,b)=>b.date-a.date).map(x=>`<div class="invoice-row"><div><b>${x.ref||"Facture"}</b><small>Facture : ${x.invoiceDate?x.invoiceDate.toLocaleDateString("fr-FR"):"—"} • Encaissé : ${x.date.toLocaleDateString("fr-FR")}</small><div class="period-source">Période fiscale : ${rf31MonthLabel(rf31MonthKey(x.date))}</div></div><div><b>${rf31Money(x.ttc)}</b><small>HT ${rf31Money(x.ht)}</small></div></div>`).join("")||'<div class="note31">Aucune facture enregistrée.</div>';
@@ -381,52 +359,6 @@ if(tb) tb.onclick=()=>saveNativePayment("t_paid","tPayDate");
  $("calendar31").innerHTML=cal.map(x=>{let now=new Date(),cl=x.paid?"ok":(now>x.date?"late":"warn");return `<div class="calendar-item ${cl}"><b>${x.title}</b><div>${fm(x.date)} • ${x.paid?"Payé":"À suivre"}</div></div>`}).join("");
 }
 
-let rfPaymentKey=null;
-function rfDateInputValue(iso){
-  if(!iso)return "";
-  const d=new Date(iso);
-  if(Number.isNaN(+d))return "";
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-}
-function rfOpenPaymentCalendar(key){
-  rfPaymentKey=key;
-  const st=rf31GetState(rf31SelectedMonth);
-  const isUrssaf=key==="u_paid";
-  $("payTitle").textContent=isUrssaf?"Paiement URSSAF":"Paiement TVA — CA3";
-  $("paySummary").textContent=`Période ${rf31MonthLabel(rf31SelectedMonth)} — choisis la date exacte à laquelle le paiement a été effectué.`;
-  $("payDate").value=rfDateInputValue(st[key+"_at"])||rfDateInputValue(new Date().toISOString());
-  $("payRemove").style.display=st[key]?"block":"none";
-  $("payModal").classList.add("open");
-}
-function rfClosePaymentCalendar(){
-  $("payModal").classList.remove("open");
-  rfPaymentKey=null;
-}
-$("payCancel").onclick=rfClosePaymentCalendar;
-$("payValidate").onclick=()=>{
-  if(!rfPaymentKey)return;
-  const v=$("payDate").value;
-  if(!v){$("paySummary").textContent="Sélectionne une date de paiement dans le calendrier.";return;}
-  let a=JSON.parse(localStorage.getItem("rf31_period_states")||"{}");
-  a[rf31SelectedMonth]=a[rf31SelectedMonth]||{};
-  a[rf31SelectedMonth][rfPaymentKey]=true;
-  a[rf31SelectedMonth][rfPaymentKey+"_at"]=v+"T12:00:00";
-  localStorage.setItem("rf31_period_states",JSON.stringify(a));
-  rfClosePaymentCalendar();
-  rf31Render();
-  $("status").textContent="Paiement enregistré";
-};
-$("payRemove").onclick=()=>{
-  if(!rfPaymentKey)return;
-  let a=JSON.parse(localStorage.getItem("rf31_period_states")||"{}");
-  a[rf31SelectedMonth]=a[rf31SelectedMonth]||{};
-  a[rf31SelectedMonth][rfPaymentKey]=false;
-  a[rf31SelectedMonth][rfPaymentKey+"_at"]=null;
-  localStorage.setItem("rf31_period_states",JSON.stringify(a));
-  rfClosePaymentCalendar();
-  rf31Render();
-  $("status").textContent="Statut paiement retiré";
-};
 
 function rf31View(name){
  try{
@@ -486,7 +418,9 @@ function isoLocalToday(){let d=new Date();return `${d.getFullYear()}-${String(d.
 function openEncaissement31(d,fileName){
  pendingInvoice31={d,fileName};
  $("encDate").value=isoLocalToday();
- $("encSummary").textContent=`${d.ref||fileName} — facture du ${d.date?d.date.toLocaleDateString("fr-FR"):"—"}. Indique la date réelle de réception du paiement.`;
+ $("encUrssafPayDate").value="";
+ $("encTvaPayDate").value="";
+ $("encSummary").textContent=`${d.ref||fileName} — facture du ${d.date?d.date.toLocaleDateString("fr-FR"):"—"}. Indique la date réelle d’encaissement et, si elles sont déjà connues, les dates exactes de paiement URSSAF et TVA.`;
  $("encModal").classList.add("open");
 }
 $("encCancel").onclick=()=>{$("encModal").classList.remove("open");pendingInvoice31=null};
@@ -496,6 +430,18 @@ $("encValidate").onclick=()=>{
  let d=pendingInvoice31.d;
  d.encaissement=v+"T12:00:00";
  save(d);
+
+ // Les paiements éventuels sont enregistrés au niveau de la période d'encaissement.
+ const cashDate=new Date(d.encaissement);
+ const periodKey=rf31MonthKey(cashDate);
+ const uPay=$("encUrssafPayDate").value;
+ const tPay=$("encTvaPayDate").value;
+ let states=JSON.parse(localStorage.getItem("rf31_period_states")||"{}");
+ states[periodKey]=states[periodKey]||{};
+ if(uPay){states[periodKey].u_paid=true;states[periodKey].u_paid_at=uPay+"T12:00:00";}
+ if(tPay){states[periodKey].t_paid=true;states[periodKey].t_paid_at=tPay+"T12:00:00";}
+ localStorage.setItem("rf31_period_states",JSON.stringify(states));
+
  $("encModal").classList.remove("open");
  const fb=$("importFeedback31");if(fb)fb.textContent=`✓ ${pendingInvoice31.fileName} enregistrée — encaissée le ${new Date(d.encaissement).toLocaleDateString("fr-FR")}`;
  pendingInvoice31=null;
