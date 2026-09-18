@@ -28,18 +28,90 @@ header,.row{display:flex;justify-content:space-between;align-items:center;gap:10
 .summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
 .sum{background:#111b2a;border-radius:14px;padding:12px}.sum span{display:block;color:#94a3b8;font-size:12px}.sum b{font-size:18px}
 .backup{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.backup button,.backup label{font-size:13px}
+
+/* V3.1 — pilotage fiscal */
+.super-title{display:flex;justify-content:space-between;align-items:end;margin:8px 0 12px}
+.super-title h2{margin:0;font-size:22px}.period{color:#93c5fd;font-weight:800}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 18px}
+.kpi31{background:#111b2a;border:1px solid #2c3d55;border-radius:16px;padding:14px}
+.kpi31 span{display:block;color:#94a3b8;font-size:12px}.kpi31 b{display:block;font-size:21px;margin-top:5px}
+.kpi31.wide{grid-column:1/-1}
+.fiscal-card{background:#162236;border:1px solid #31445f;border-radius:20px;padding:18px;margin:12px 0}
+.fiscal-head{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.fiscal-head h3{margin:0}.pill{border-radius:999px;padding:7px 11px;background:#263954;color:#dbeafe;font-size:13px}
+.pill.ok{background:#123d32;color:#7ef0c6}.pill.warn{background:#4a3517;color:#fbbf24}.pill.late{background:#4b2027;color:#fda4af}
+.fiscal-amount{font-size:36px;font-weight:900;margin:18px 0 10px}
+.meta31{display:grid;gap:6px;color:#dbe3ef}.meta31 b{color:#fff}
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:rgba(10,17,29,.96);backdrop-filter:blur(18px);border-top:1px solid #26364d;padding:8px max(10px,env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.bottomnav button{border:0;background:transparent;color:#8fa0b8;padding:8px 3px;font-size:11px;font-weight:700}.bottomnav button.active{color:#60a5fa}.bottomnav i{display:block;font-style:normal;font-size:20px;margin-bottom:2px}
+body{padding-bottom:92px}
+.v31view{display:none}.v31view.active{display:block}
+.monthrow{display:flex;gap:8px;overflow:auto;padding:3px 0 12px}.monthbtn{white-space:nowrap;border:1px solid #33465f;background:#172338;color:#cbd5e1;border-radius:999px;padding:9px 13px}.monthbtn.active{background:#287cff;color:#fff}
+.invoice-row{background:#121d2d;border:1px solid #293a52;border-radius:14px;padding:13px;margin:8px 0;display:flex;justify-content:space-between;gap:10px}
+.invoice-row small{display:block;color:#94a3b8;margin-top:4px}
+.settings31 label{display:block;color:#aab7c9;margin:12px 0 5px}.settings31 input{width:100%;box-sizing:border-box;border:1px solid #33465f;background:#101a29;color:white;border-radius:12px;padding:12px;font-size:16px}
+.primary31{width:100%;border:0;border-radius:13px;padding:13px;background:#287cff;color:#fff;font-weight:800;margin-top:12px}
+.calendar-item{border-left:4px solid #64748b;background:#121d2d;border-radius:10px;padding:12px 14px;margin:9px 0}.calendar-item.warn{border-left-color:#f59e0b}.calendar-item.late{border-left-color:#ef4444}.calendar-item.ok{border-left-color:#10b981}
+.note31{font-size:12px;color:#8fa0b8;line-height:1.45;margin-top:10px}
 </style></head><body><main>
-<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.0</b></div></div><span class="badge" id="status">Prêt</span></header>
-<nav class="tabs" aria-label="Navigation">
+<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.1</b></div></div><span class="badge" id="status">Prêt</span></header>
+<nav class="tabs" style="display:none" aria-label="Navigation">
 <button class="tab active" data-view="dashboard">Dashboard</button>
 <button class="tab" data-view="import">Facture</button>
 <button class="tab" data-view="historyView">Historique</button>
 </nav>
-<div id="dashboard" class="view">
-</div><div id="import" class="view hiddenView"><div class="actions"><label class="btn" for="file">Ajouter une facture PDF</label><input id="file" type="file" accept="application/pdf">
+
+<section id="v31-supervision" class="v31view active">
+  <div class="super-title"><h2>Supervision</h2><div class="period" id="v31Period">—</div></div>
+  <div class="monthrow" id="monthSelector"></div>
+  <div class="kpis">
+    <div class="kpi31"><span>CA encaissé</span><b id="kpiCA">0,00 €</b></div>
+    <div class="kpi31"><span>TTC encaissé</span><b id="kpiTTC">0,00 €</b></div>
+    <div class="kpi31"><span>À réserver</span><b id="kpiReserve">0,00 €</b></div>
+    <div class="kpi31"><span>Disponible estimé</span><b id="kpiAvailable">0,00 €</b></div>
+  </div>
+  <div id="fiscalCards"></div>
+</section>
+
+<section id="v31-factures" class="v31view">
+  <div class="super-title"><h2>Factures</h2><div class="period" id="invoiceCount">0</div></div>
+  <button class="primary31" id="v31AddInvoice">＋ Ajouter une facture PDF</button>
+  <div id="invoiceList31"></div>
+</section>
+
+<section id="v31-calendar" class="v31view">
+  <div class="super-title"><h2>Calendrier fiscal</h2><div class="period">Échéances</div></div>
+  <div id="calendar31"></div>
+</section>
+
+<section id="v31-settings" class="v31view settings31">
+  <div class="super-title"><h2>Réglages</h2><div class="period">Fiscalité</div></div>
+  <label>Taux URSSAF (%)</label><input id="setUrssaf" inputmode="decimal" value="25.6">
+  <label>CFP (%)</label><input id="setCfp" inputmode="decimal" value="0.2">
+  <label>Taux TVA par défaut (%)</label><input id="setVat" inputmode="decimal" value="20">
+  <label>TVA déductible de la période (€)</label><input id="setDeduct" inputmode="decimal" value="0">
+  <label>Décalage fiscal (mois)</label><input id="setLag" inputmode="numeric" value="2">
+  <button class="primary31" id="saveSettings31">Enregistrer les réglages</button>
+  <div class="backup">
+    <button class="btn alt" id="export31">Sauvegarder mes données</button>
+    <label class="btn alt" for="restore31">Restaurer</label>
+    <input id="restore31" type="file" accept="application/json" style="display:none">
+  </div>
+  <div class="note31">Les données restent dans le stockage local de l’iPhone. Les réglages permettent d’adapter les taux sans modifier le code.</div>
+</section>
+
+<nav class="bottomnav" id="bottomnav31">
+ <button class="active" data-v31="supervision"><i>◉</i>Supervision</button>
+ <button data-v31="factures"><i>▤</i>Factures</button>
+ <button data-v31="calendar"><i>▦</i>Calendrier</button>
+ <button data-v31="settings"><i>⚙</i>Réglages</button>
+</nav>
+
+<div id="dashboard" class="view" style="display:none">
+</div><div id="import" class="view hiddenView" style="display:none"><div class="actions"><label class="btn" for="file">Ajouter une facture PDF</label><input id="file" type="file" accept="application/pdf">
 <button class="btn alt" id="reset">Actualiser / réinitialiser</button></div><div class="muted notice" id="msg">Sélectionnez une facture. Le traitement se fait sur l'iPhone.</div><div id="diag" class="diag hidden"></div>
 <section class="card hidden" id="inv"><b id="ref"></b><div class="line" id="detail"></div></section>
-</div><div id="dashboard2" class="view"><section class="grid">
+</div><div id="dashboard2" class="view" style="display:none"><section class="grid">
 <div class="card"><div class="row"><div><b>URSSAF</b><div class="muted">Cotisations + CFP</div></div><span class="badge" id="ubs">En attente</span></div>
 <div class="amount" id="ur">0,00 €</div><div class="line" id="uca">CA : 0,00 €</div><div class="line" id="uopen">Ouverture : —</div><div class="line strong" id="udue">Paiement : —</div>
 <div class="actions2"><button class="act" id="udecl">Déclaré</button><button class="act" id="upaid">Payé</button></div></div>
@@ -47,7 +119,7 @@ header,.row{display:flex;justify-content:space-between;align-items:center;gap:10
 <div class="amount" id="tv">0,00 €</div><div class="line" id="tcol">TVA collectée : 0,00 €</div><div class="line" id="topen">Ouverture : —</div><div class="line strong" id="tdue">Paiement : —</div>
 <div class="actions2"><button class="act" id="tdecl">Déclaré</button><button class="act" id="tpaid">Payé</button></div></div></section>
 <section class="card"><div class="muted">TOTAL À RÉSERVER</div><div class="total" id="total">0,00 €</div></section>
-</div><div id="historyView" class="view hiddenView"><section class="card"><div class="row"><b>Historique local</b><button class="btn alt" id="clear">Effacer</button></div><div id="history"></div>
+</div><div id="historyView" class="view hiddenView" style="display:none"><section class="card"><div class="row"><b>Historique local</b><button class="btn alt" id="clear">Effacer</button></div><div id="history"></div>
 <div class="backup"><button class="btn alt" id="exportData">Sauvegarder</button>
 <label class="btn alt" for="restoreData">Restaurer</label><input id="restoreData" type="file" accept="application/json"></div>
 </section></div>
@@ -160,7 +232,115 @@ $("exportData").addEventListener("click",()=>{
 $("restoreData").addEventListener("change",async e=>{
  const f=e.target.files[0];if(!f)return;
  try{const d=JSON.parse(await f.text());if(!Array.isArray(d.history))throw Error("sauvegarde invalide");
- localStorage.setItem("rfh",JSON.stringify(d.history));localStorage.setItem("rfstates",JSON.stringify(d.states||{}));hist();$("msg").textContent="Sauvegarde restaurée."}
+ localStorage.setItem("rfh",JSON.stringify(d.history));localStorage.setItem("rfstates",JSON.stringify(d.states||{}));
+// ===== Robot Factures V3.1 =====
+const RF31_KEY="rf31_settings";
+let rf31SelectedMonth=null;
+
+function rf31Settings(){
+  return Object.assign({urssaf:25.6,cfp:.2,vat:20,deductible:0,lag:2},JSON.parse(localStorage.getItem(RF31_KEY)||"{}"));
+}
+function rf31History(){ return JSON.parse(localStorage.getItem("rfh")||"[]"); }
+function rf31Date(x){ const d=new Date(x); return Number.isNaN(+d)?null:d; }
+function rf31MonthKey(d){return d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`:"";}
+function rf31MonthLabel(k){if(!k)return "—";let [y,m]=k.split("-").map(Number);return new Date(y,m-1,1).toLocaleDateString("fr-FR",{month:"long",year:"numeric"});}
+function rf31Money(x){return new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"}).format(Number(x)||0)}
+function rf31GetState(periodKey){return JSON.parse(localStorage.getItem("rf31_period_states")||"{}")[periodKey]||{}}
+function rf31SaveState(periodKey,key,val){
+ let a=JSON.parse(localStorage.getItem("rf31_period_states")||"{}");a[periodKey]=a[periodKey]||{};a[periodKey][key]=val;a[periodKey][key+"_at"]=val?new Date().toISOString():null;localStorage.setItem("rf31_period_states",JSON.stringify(a));
+}
+function rf31Invoices(){
+ return rf31History().map(x=>({...x,date:rf31Date(x.date)})).filter(x=>x.date);
+}
+function rf31Months(){
+ let ms=[...new Set(rf31Invoices().map(x=>rf31MonthKey(x.date)))].sort().reverse();
+ if(!ms.length){let d=new Date();ms=[rf31MonthKey(d)]}
+ return ms;
+}
+function rf31DueForInvoiceMonth(k){
+ let [y,m]=k.split("-").map(Number), s=rf31Settings(), base=new Date(y,m-1+s.lag,1);
+ let uy=base.getFullYear(),um=base.getMonth();
+ return {
+   urssafOpen:new Date(uy,um,1),
+   urssafDue:new Date(uy,um+1,1),
+   vatOpen:new Date(uy,um,12),
+   vatDue:new Date(uy,um,16)
+ };
+}
+function rf31Status(due,paid){
+ if(paid)return ["Payé","ok"];
+ let now=new Date();now.setHours(0,0,0,0);
+ if(now<due.urssafOpen)return ["À préparer","ok"];
+ return ["Ouvert","warn"];
+}
+function rf31StatusVat(due,paid){
+ if(paid)return ["Payé","ok"];
+ let now=new Date();now.setHours(0,0,0,0);
+ if(now<due.vatOpen)return ["À préparer","ok"];
+ if(now<=due.vatDue)return ["Ouvert","warn"];
+ return ["Échéance passée","late"];
+}
+function rf31Render(){
+ let months=rf31Months();
+ if(!rf31SelectedMonth||!months.includes(rf31SelectedMonth))rf31SelectedMonth=months[0];
+ $("monthSelector").innerHTML=months.map(k=>`<button class="monthbtn ${k===rf31SelectedMonth?"active":""}" data-m="${k}">${rf31MonthLabel(k)}</button>`).join("");
+ document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{rf31SelectedMonth=b.dataset.m;rf31Render()});
+ $("v31Period").textContent=rf31MonthLabel(rf31SelectedMonth);
+
+ let inv=rf31Invoices().filter(x=>rf31MonthKey(x.date)===rf31SelectedMonth);
+ let ca=inv.reduce((a,x)=>a+(Number(x.ht)||0),0);
+ let ttc=inv.reduce((a,x)=>a+(Number(x.ttc)||0),0);
+ let vat=inv.reduce((a,x)=>a+(Number(x.tva)||0),0);
+ let s=rf31Settings(), urssaf=ca*(s.urssaf+s.cfp)/100, vatNet=Math.max(0,vat-(Number(s.deductible)||0));
+ let reserve=urssaf+vatNet, avail=ttc-reserve;
+ $("kpiCA").textContent=rf31Money(ca);$("kpiTTC").textContent=rf31Money(ttc);$("kpiReserve").textContent=rf31Money(reserve);$("kpiAvailable").textContent=rf31Money(avail);
+
+ let due=rf31DueForInvoiceMonth(rf31SelectedMonth), st=rf31GetState(rf31SelectedMonth);
+ let us=rf31Status(due,st.u_paid), vs=rf31StatusVat(due,st.t_paid);
+ $("fiscalCards").innerHTML=`
+ <div class="fiscal-card"><div class="fiscal-head"><h3>URSSAF</h3><span class="pill ${us[1]}">${us[0]}</span></div>
+ <div class="fiscal-amount">${rf31Money(urssaf)}</div><div class="meta31"><span>CA à déclarer : <b>${rf31Money(ca)}</b></span>
+ <span>Ouverture : <b>${fm(due.urssafOpen)}</b></span><span>Paiement : <b>${fm(due.urssafDue)}</b></span></div>
+ <div class="actions2"><button class="act ${st.u_decl?"done":""}" data-ps="u_decl">${st.u_decl?"✓ Déclaré":"Déclaré"}</button><button class="act ${st.u_paid?"done":""}" data-ps="u_paid">${st.u_paid?"✓ Payé":"Payé"}</button></div></div>
+ <div class="fiscal-card"><div class="fiscal-head"><h3>TVA — CA3</h3><span class="pill ${vs[1]}">${vs[0]}</span></div>
+ <div class="fiscal-amount">${rf31Money(vatNet)}</div><div class="meta31"><span>TVA collectée : <b>${rf31Money(vat)}</b></span><span>TVA déductible : <b>${rf31Money(s.deductible)}</b></span>
+ <span>Ouverture : <b>${fm(due.vatOpen)}</b></span><span>Paiement : <b>${fm(due.vatDue)}</b></span></div>
+ <div class="actions2"><button class="act ${st.t_decl?"done":""}" data-ps="t_decl">${st.t_decl?"✓ Déclaré":"Déclaré"}</button><button class="act ${st.t_paid?"done":""}" data-ps="t_paid">${st.t_paid?"✓ Payé":"Payé"}</button></div></div>`;
+ document.querySelectorAll("[data-ps]").forEach(b=>b.onclick=()=>{let cur=rf31GetState(rf31SelectedMonth);rf31SaveState(rf31SelectedMonth,b.dataset.ps,!cur[b.dataset.ps]);rf31Render()});
+
+ $("invoiceCount").textContent=rf31Invoices().length+" facture"+(rf31Invoices().length>1?"s":"");
+ $("invoiceList31").innerHTML=rf31Invoices().sort((a,b)=>b.date-a.date).map(x=>`<div class="invoice-row"><div><b>${x.ref||"Facture"}</b><small>${x.date.toLocaleDateString("fr-FR")} • ${rf31MonthLabel(rf31MonthKey(x.date))}</small></div><div><b>${rf31Money(x.ttc)}</b><small>HT ${rf31Money(x.ht)}</small></div></div>`).join("")||'<div class="note31">Aucune facture enregistrée.</div>';
+
+ let cal=[];
+ rf31Months().forEach(k=>{let d=rf31DueForInvoiceMonth(k),state=rf31GetState(k);cal.push({date:d.vatDue,title:`TVA • ${rf31MonthLabel(k)}`,paid:state.t_paid});cal.push({date:d.urssafDue,title:`URSSAF • ${rf31MonthLabel(k)}`,paid:state.u_paid})});
+ cal.sort((a,b)=>a.date-b.date);
+ $("calendar31").innerHTML=cal.map(x=>{let now=new Date(),cl=x.paid?"ok":(now>x.date?"late":"warn");return `<div class="calendar-item ${cl}"><b>${x.title}</b><div>${fm(x.date)} • ${x.paid?"Payé":"À suivre"}</div></div>`}).join("");
+}
+function rf31View(name){
+ document.querySelectorAll(".v31view").forEach(v=>v.classList.toggle("active",v.id==="v31-"+name));
+ document.querySelectorAll("[data-v31]").forEach(b=>b.classList.toggle("active",b.dataset.v31===name));
+ if(name==="supervision"||name==="factures"||name==="calendar")rf31Render();
+}
+document.querySelectorAll("[data-v31]").forEach(b=>b.onclick=()=>rf31View(b.dataset.v31));
+$("v31AddInvoice").onclick=()=>$("file").click();
+
+let cfg=rf31Settings();$("setUrssaf").value=cfg.urssaf;$("setCfp").value=cfg.cfp;$("setVat").value=cfg.vat;$("setDeduct").value=cfg.deductible;$("setLag").value=cfg.lag;
+$("saveSettings31").onclick=()=>{
+ let c={urssaf:parseFloat($("setUrssaf").value.replace(",","."))||0,cfp:parseFloat($("setCfp").value.replace(",","."))||0,vat:parseFloat($("setVat").value.replace(",","."))||20,deductible:parseFloat($("setDeduct").value.replace(",","."))||0,lag:parseInt($("setLag").value)||2};
+ localStorage.setItem(RF31_KEY,JSON.stringify(c));rf31Render();$("status").textContent="Réglages enregistrés";
+};
+$("export31").onclick=()=>{
+ let payload={version:"3.1",history:rf31History(),periodStates:JSON.parse(localStorage.getItem("rf31_period_states")||"{}"),settings:rf31Settings()};
+ let blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="robot-factures-v31-sauvegarde.json";a.click();
+};
+$("restore31").onchange=async e=>{try{let d=JSON.parse(await e.target.files[0].text());if(!Array.isArray(d.history))throw Error("format invalide");localStorage.setItem("rfh",JSON.stringify(d.history));localStorage.setItem("rf31_period_states",JSON.stringify(d.periodStates||{}));localStorage.setItem(RF31_KEY,JSON.stringify(d.settings||rf31Settings()));location.reload()}catch(err){$("status").textContent="Restauration impossible"}};
+
+// Après chaque import réussi, recalculer toute la supervision.
+const rf31Obs=new MutationObserver(()=>{if($("status").textContent==="Calculé")setTimeout(rf31Render,0)});
+rf31Obs.observe($("status"),{childList:true,subtree:true});
+rf31Render();
+
+hist();$("msg").textContent="Sauvegarde restaurée."}
  catch(err){$("msg").textContent="Restauration impossible : "+err.message}
 });
 
