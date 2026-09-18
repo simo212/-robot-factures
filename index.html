@@ -18,8 +18,11 @@ header,.row{display:flex;justify-content:space-between;align-items:center;gap:10
 .tab{border:1px solid #2a394f;background:#172233;color:#cbd5e1;border-radius:12px;padding:11px 7px;font-weight:700}.tab.active{background:#287cff;color:#fff}
 .view.hiddenView{display:none}.hist button{border:0;background:transparent;color:#7fb3ff;font-size:14px}.kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mini{background:#111b2a;border-radius:14px;padding:12px}.mini b{display:block;font-size:17px;margin-top:4px}
 @media(max-width:380px){.amount{font-size:32px}.btn{width:100%;text-align:center}}
+
+.diag{font-size:13px;line-height:1.65;background:#111b2a;border:1px solid #334155;border-radius:14px;padding:12px;margin-top:14px}
+.diag .yes{color:#6ee7b7}.diag .no{color:#fda4af}
 </style></head><body><main>
-<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances</div></div><span class="badge" id="status">Prêt</span></header>
+<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V2.2</b></div></div><span class="badge" id="status">Prêt</span></header>
 <nav class="tabs" aria-label="Navigation">
 <button class="tab active" data-view="dashboard">Dashboard</button>
 <button class="tab" data-view="import">Facture</button>
@@ -27,7 +30,7 @@ header,.row{display:flex;justify-content:space-between;align-items:center;gap:10
 </nav>
 <div id="dashboard" class="view">
 </div><div id="import" class="view hiddenView"><div class="actions"><label class="btn" for="file">Ajouter une facture PDF</label><input id="file" type="file" accept="application/pdf">
-<button class="btn alt" id="reset">Actualiser / réinitialiser</button></div><div class="muted notice" id="msg">Sélectionnez une facture. Le traitement se fait sur l'iPhone.</div>
+<button class="btn alt" id="reset">Actualiser / réinitialiser</button></div><div class="muted notice" id="msg">Sélectionnez une facture. Le traitement se fait sur l'iPhone.</div><div id="diag" class="diag hidden"></div>
 <section class="card hidden" id="inv"><b id="ref"></b><div class="line" id="detail"></div></section>
 </div><div id="dashboard2" class="view"><section class="grid">
 <div class="card"><div class="row"><div><b>URSSAF</b><div class="muted">Cotisations + CFP</div></div><span class="badge" id="ubs">En attente</span></div>
@@ -64,8 +67,19 @@ function parse(t){
  }
  return {ref,date,ht,tva,ttc};
 }
+function diagnostics(d){
+ const rows=[
+  ["Date",!!d.date,d.date?fm(d.date):"non reconnue"],
+  ["HT",d.ht!==null,d.ht!==null?eur(d.ht):"non reconnu"],
+  ["TVA",d.tva!==null,d.tva!==null?eur(d.tva):"non reconnue"],
+  ["TTC",d.ttc!==null,d.ttc!==null?eur(d.ttc):"non reconnu"]
+ ];
+ $("diag").innerHTML="<b>Diagnostic PDF</b><br>"+rows.map(r=>`<span class="${r[1]?"yes":"no"}">${r[1]?"✓":"✕"} ${r[0]} : ${r[2]}</span>`).join("<br>");
+ $("diag").classList.remove("hidden");
+}
+
 function reset(){["ur","tv","total"].forEach(x=>$(x).textContent="0,00 €");$("uca").textContent="CA : 0,00 €";$("tcol").textContent="TVA collectée : 0,00 €";
-$("uopen").textContent=$("topen").textContent="Ouverture : —";$("udue").textContent=$("tdue").textContent="Paiement : —";$("ubs").textContent=$("tbs").textContent="En attente";$("inv").classList.add("hidden");$("status").textContent="Prêt"}
+$("uopen").textContent=$("topen").textContent="Ouverture : —";$("udue").textContent=$("tdue").textContent="Paiement : —";$("ubs").textContent=$("tbs").textContent="En attente";$("inv").classList.add("hidden");$("diag").classList.add("hidden");$("status").textContent="Prêt"}
 function show(d){let period=add(d.date,2),op=add(period,1),ud=add(op,1),to=new Date(op.getFullYear(),op.getMonth(),12),td=new Date(op.getFullYear(),op.getMonth(),16);
 let ur=d.ht*.258,tv=d.tva,total=ur+tv;$("ur").textContent=eur(ur);$("uca").textContent=`CA : ${eur(d.ht)}`;$("uopen").textContent=`Ouverture : ${fm(op)}`;$("udue").textContent=`Paiement : ${fm(ud)}`;
 $("tv").textContent=eur(tv);$("tcol").textContent=`TVA collectée : ${eur(tv)}`;$("topen").textContent=`Ouverture : ${fm(to)}`;$("tdue").textContent=`Paiement : ${fm(td)}`;$("total").textContent=eur(total);
@@ -83,7 +97,7 @@ document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>sele
 
 $("file").addEventListener("change",async e=>{let f=e.target.files[0];if(!f)return;$("status").textContent="Analyse…";$("msg").textContent="Analyse locale du PDF…";try{
 let pdf=await pdfjs.getDocument({data:await f.arrayBuffer()}).promise,t="";for(let i=1;i<=pdf.numPages;i++){let p=await pdf.getPage(i),c=await p.getTextContent();t+=c.items.map(z=>z.str).join(" ")+"\\n"}
-let d=parse(t);if(!d.date||d.ht===null||d.tva===null||d.ttc===null){let m=[];if(!d.date)m.push("date");if(d.ht===null)m.push("HT");if(d.tva===null)m.push("TVA");if(d.ttc===null)m.push("TTC");throw Error("champ(s) non reconnu(s) : "+m.join(", "))}show(d);save(d);selectView("dashboard");$("msg").textContent="Facture analysée, dashboard actualisé."}catch(e){reset();$("status").textContent="À vérifier";$("msg").textContent="Analyse impossible : "+e.message}});
+let d=parse(t);diagnostics(d);if(!d.date||d.ht===null||d.tva===null||d.ttc===null){let m=[];if(!d.date)m.push("date");if(d.ht===null)m.push("HT");if(d.tva===null)m.push("TVA");if(d.ttc===null)m.push("TTC");throw Error("champ(s) non reconnu(s) : "+m.join(", "))}show(d);save(d);selectView("dashboard");$("msg").textContent="Facture analysée, dashboard actualisé."}catch(e){reset();$("status").textContent="À vérifier";$("msg").textContent="Analyse impossible : "+e.message}});
 $("reset").addEventListener("click",()=>{reset();$("file").value="";$("msg").textContent="Dashboard réinitialisé."});$("clear").addEventListener("click",()=>{localStorage.removeItem("rfh");hist()});hist();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js");
 </script></main></body></html>
