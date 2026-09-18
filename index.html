@@ -53,8 +53,14 @@ body{padding-bottom:92px}
 .primary31{width:100%;border:0;border-radius:13px;padding:13px;background:#287cff;color:#fff;font-weight:800;margin-top:12px}
 .calendar-item{border-left:4px solid #64748b;background:#121d2d;border-radius:10px;padding:12px 14px;margin:9px 0}.calendar-item.warn{border-left-color:#f59e0b}.calendar-item.late{border-left-color:#ef4444}.calendar-item.ok{border-left-color:#10b981}
 .note31{font-size:12px;color:#8fa0b8;line-height:1.45;margin-top:10px}
+
+.enc-modal{position:fixed;inset:0;z-index:100;background:rgba(3,8,18,.78);display:none;align-items:flex-end;justify-content:center}
+.enc-modal.open{display:flex}.enc-sheet{width:100%;max-width:620px;background:#162236;border:1px solid #33465f;border-radius:24px 24px 0 0;padding:22px 22px calc(22px + env(safe-area-inset-bottom));box-sizing:border-box}
+.enc-sheet h3{margin:0 0 8px;font-size:23px}.enc-sheet p{color:#9cacbf;line-height:1.45}.enc-sheet input{width:100%;box-sizing:border-box;background:#0f1928;color:#fff;border:1px solid #3a4d68;border-radius:13px;padding:14px;font-size:18px;margin:8px 0 12px}
+.enc-sheet .row{display:grid;grid-template-columns:1fr 1.4fr;gap:9px}.secondary31{border:1px solid #41536d;background:#202d41;color:#fff;border-radius:13px;padding:13px;font-weight:800}
+.period-source{font-size:12px;color:#93c5fd;margin-top:6px}
 </style></head><body><main>
-<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.1.6</b></div></div><span class="badge" id="status">Prêt</span></header>
+<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.2.1</b></div></div><span class="badge" id="status">Prêt</span></header>
 <nav class="tabs" style="display:none" aria-label="Navigation">
 <button class="tab active" data-view="dashboard">Dashboard</button>
 <button class="tab" data-view="import">Facture</button>
@@ -65,8 +71,8 @@ body{padding-bottom:92px}
   <div class="super-title"><h2>Supervision</h2><div class="period" id="v31Period">—</div></div>
   <div class="monthrow" id="monthSelector"></div>
   <div class="kpis">
-    <div class="kpi31"><span>CA encaissé</span><b id="kpiCA">0,00 €</b></div>
-    <div class="kpi31"><span>TTC encaissé</span><b id="kpiTTC">0,00 €</b></div>
+    <div class="kpi31"><span>CA encaissé sur la période</span><b id="kpiCA">0,00 €</b></div>
+    <div class="kpi31"><span>TTC encaissé sur la période</span><b id="kpiTTC">0,00 €</b></div>
     <div class="kpi31"><span>À réserver</span><b id="kpiReserve">0,00 €</b></div>
     <div class="kpi31"><span>Disponible estimé</span><b id="kpiAvailable">0,00 €</b></div>
   </div>
@@ -92,7 +98,7 @@ body{padding-bottom:92px}
   <label>CFP (%)</label><input id="setCfp" inputmode="decimal" value="0.2">
   <label>Taux TVA par défaut (%)</label><input id="setVat" inputmode="decimal" value="20">
   <label>TVA déductible de la période (€)</label><input id="setDeduct" inputmode="decimal" value="0">
-  <label>Décalage fiscal (mois)</label><input id="setLag" inputmode="numeric" value="2">
+  
   <button class="primary31" id="saveSettings31">Enregistrer les réglages</button>
   <div class="backup">
     <button class="btn alt" id="export31">Sauvegarder mes données</button>
@@ -101,6 +107,16 @@ body{padding-bottom:92px}
   </div>
   <div class="note31">Navigation : V3.1.2 iOS ✓</div><div class="note31">Les données restent dans le stockage local de l’iPhone. Les réglages permettent d’adapter les taux sans modifier le code.</div>
 </section>
+
+
+<div id="encModal" class="enc-modal">
+ <div class="enc-sheet">
+  <h3>Date d’encaissement</h3>
+  <p id="encSummary">La période fiscale est déterminée par la date à laquelle le règlement est réellement reçu.</p>
+  <input id="encDate" type="date">
+  <div class="row"><button id="encCancel" class="secondary31">Annuler</button><button id="encValidate" class="primary31" style="margin:0">Valider l’encaissement</button></div>
+ </div>
+</div>
 
 <nav class="bottomnav" id="bottomnav31">
  <button class="active" id="navSupervision" data-v31="supervision"><i>◉</i>Supervision</button>
@@ -244,7 +260,7 @@ const RF31_KEY="rf31_settings";
 let rf31SelectedMonth=null;
 
 function rf31Settings(){
-  return Object.assign({urssaf:25.6,cfp:.2,vat:20,deductible:0,lag:2},JSON.parse(localStorage.getItem(RF31_KEY)||"{}"));
+  return Object.assign({urssaf:25.6,cfp:.2,vat:20,deductible:0},JSON.parse(localStorage.getItem(RF31_KEY)||"{}"));
 }
 function rf31History(){ return JSON.parse(localStorage.getItem("rfh")||"[]"); }
 function rf31Date(x){ const d=new Date(x); return Number.isNaN(+d)?null:d; }
@@ -256,7 +272,10 @@ function rf31SaveState(periodKey,key,val){
  let a=JSON.parse(localStorage.getItem("rf31_period_states")||"{}");a[periodKey]=a[periodKey]||{};a[periodKey][key]=val;a[periodKey][key+"_at"]=val?new Date().toISOString():null;localStorage.setItem("rf31_period_states",JSON.stringify(a));
 }
 function rf31Invoices(){
- return rf31History().map(x=>({...x,date:rf31Date(x.date)})).filter(x=>x.date);
+ return rf31History().map(x=>{
+   let invoiceDate=rf31Date(x.date), cashDate=rf31Date(x.encaissement||x.cashDate||x.date);
+   return {...x,invoiceDate:invoiceDate,date:cashDate,encaissement:x.encaissement||x.cashDate||x.date};
+ }).filter(x=>x.date);
 }
 function rf31Months(){
  let ms=[...new Set(rf31Invoices().map(x=>rf31MonthKey(x.date)))].sort().reverse();
@@ -264,12 +283,12 @@ function rf31Months(){
  return ms;
 }
 function rf31DueForInvoiceMonth(k){
- let [y,m]=k.split("-").map(Number), s=rf31Settings(), base=new Date(y,m-1+s.lag,1);
- let uy=base.getFullYear(),um=base.getMonth();
+ let [y,m]=k.split("-").map(Number);
+ let next=new Date(y,m,1), uy=next.getFullYear(),um=next.getMonth();
  return {
    urssafOpen:new Date(uy,um,1),
-   urssafDue:new Date(uy,um+1,1),
-   vatOpen:new Date(uy,um,12),
+   urssafDue:new Date(uy,um+1,0),
+   vatOpen:new Date(uy,um,1),
    vatDue:new Date(uy,um,16)
  };
 }
@@ -315,7 +334,7 @@ function rf31Render(){
  document.querySelectorAll("[data-ps]").forEach(b=>b.onclick=()=>{let cur=rf31GetState(rf31SelectedMonth);rf31SaveState(rf31SelectedMonth,b.dataset.ps,!cur[b.dataset.ps]);rf31Render()});
 
  $("invoiceCount").textContent=rf31Invoices().length+" facture"+(rf31Invoices().length>1?"s":"");
- $("invoiceList31").innerHTML=rf31Invoices().sort((a,b)=>b.date-a.date).map(x=>`<div class="invoice-row"><div><b>${x.ref||"Facture"}</b><small>${x.date.toLocaleDateString("fr-FR")} • ${rf31MonthLabel(rf31MonthKey(x.date))}</small></div><div><b>${rf31Money(x.ttc)}</b><small>HT ${rf31Money(x.ht)}</small></div></div>`).join("")||'<div class="note31">Aucune facture enregistrée.</div>';
+ $("invoiceList31").innerHTML=rf31Invoices().sort((a,b)=>b.date-a.date).map(x=>`<div class="invoice-row"><div><b>${x.ref||"Facture"}</b><small>Facture : ${x.invoiceDate?x.invoiceDate.toLocaleDateString("fr-FR"):"—"} • Encaissé : ${x.date.toLocaleDateString("fr-FR")}</small><div class="period-source">Période fiscale : ${rf31MonthLabel(rf31MonthKey(x.date))}</div></div><div><b>${rf31Money(x.ttc)}</b><small>HT ${rf31Money(x.ht)}</small></div></div>`).join("")||'<div class="note31">Aucune facture enregistrée.</div>';
 
  let cal=[];
  rf31Months().forEach(k=>{let d=rf31DueForInvoiceMonth(k),state=rf31GetState(k);cal.push({date:d.vatDue,title:`TVA • ${rf31MonthLabel(k)}`,paid:state.t_paid});cal.push({date:d.urssafDue,title:`URSSAF • ${rf31MonthLabel(k)}`,paid:state.u_paid})});
@@ -339,9 +358,9 @@ function rf31View(name){
 /* Navigation V3.1.2 gérée par onclick inline pour compatibilité iOS PWA */
 /* V3.1.6 : le label ouvre directement file31 via HTML natif iOS */
 
-let cfg=rf31Settings();$("setUrssaf").value=cfg.urssaf;$("setCfp").value=cfg.cfp;$("setVat").value=cfg.vat;$("setDeduct").value=cfg.deductible;$("setLag").value=cfg.lag;
+let cfg=rf31Settings();$("setUrssaf").value=cfg.urssaf;$("setCfp").value=cfg.cfp;$("setVat").value=cfg.vat;$("setDeduct").value=cfg.deductible;
 $("saveSettings31").onclick=()=>{
- let c={urssaf:parseFloat($("setUrssaf").value.replace(",","."))||0,cfp:parseFloat($("setCfp").value.replace(",","."))||0,vat:parseFloat($("setVat").value.replace(",","."))||20,deductible:parseFloat($("setDeduct").value.replace(",","."))||0,lag:parseInt($("setLag").value)||2};
+ let c={urssaf:parseFloat($("setUrssaf").value.replace(",","."))||0,cfp:parseFloat($("setCfp").value.replace(",","."))||0,vat:parseFloat($("setVat").value.replace(",","."))||20,deductible:parseFloat($("setDeduct").value.replace(",","."))||0};
  localStorage.setItem(RF31_KEY,JSON.stringify(c));rf31Render();$("status").textContent="Réglages enregistrés";
 };
 $("export31").onclick=()=>{
@@ -375,6 +394,27 @@ function selectView(name){
 }
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>selectView(b.dataset.view)));
 
+let pendingInvoice31=null;
+function isoLocalToday(){let d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
+function openEncaissement31(d,fileName){
+ pendingInvoice31={d,fileName};
+ $("encDate").value=isoLocalToday();
+ $("encSummary").textContent=`${d.ref||fileName} — facture du ${d.date?d.date.toLocaleDateString("fr-FR"):"—"}. Indique la date réelle de réception du paiement.`;
+ $("encModal").classList.add("open");
+}
+$("encCancel").onclick=()=>{$("encModal").classList.remove("open");pendingInvoice31=null};
+$("encValidate").onclick=()=>{
+ if(!pendingInvoice31)return;
+ let v=$("encDate").value;if(!v){$("encSummary").textContent="Sélectionne la date réelle d’encaissement.";return}
+ let d=pendingInvoice31.d;
+ d.encaissement=v+"T12:00:00";
+ save(d);
+ $("encModal").classList.remove("open");
+ const fb=$("importFeedback31");if(fb)fb.textContent=`✓ ${pendingInvoice31.fileName} enregistrée — encaissée le ${new Date(d.encaissement).toLocaleDateString("fr-FR")}`;
+ pendingInvoice31=null;
+ rf31Render();rf31View("factures");
+ $("status").textContent="Calculé";$("msg").textContent="Facture enregistrée avec sa date d’encaissement.";
+};
 async function analysePdfInput(e){
  let f=e.target.files&&e.target.files[0]; if(!f)return;
  const fb=$("importFeedback31");
@@ -389,12 +429,11 @@ async function analysePdfInput(e){
      let m=[];if(!d.date)m.push("date");if(d.ht===null)m.push("HT");if(d.tva===null)m.push("TVA");if(d.ttc===null)m.push("TTC");
      throw Error("champ(s) non reconnu(s) : "+m.join(", "));
    }
-   show(d);save(d);rf31Render();
-   if(fb)fb.textContent="✓ "+f.name+" importée — "+rf31Money(d.ttc);
-   $("msg").textContent="Facture analysée et enregistrée.";
+   show(d);
+   if(fb)fb.textContent="PDF reconnu. Indique maintenant la date d’encaissement.";
+   openEncaissement31(d,f.name);
  }catch(err){
-   $("status").textContent="À vérifier";
-   $("msg").textContent="Analyse impossible : "+err.message;
+   $("status").textContent="À vérifier";$("msg").textContent="Analyse impossible : "+err.message;
    if(fb)fb.textContent="Échec de l’analyse : "+err.message;
  }finally{e.target.value=""}
 }
