@@ -54,7 +54,7 @@ body{padding-bottom:92px}
 .calendar-item{border-left:4px solid #64748b;background:#121d2d;border-radius:10px;padding:12px 14px;margin:9px 0}.calendar-item.warn{border-left-color:#f59e0b}.calendar-item.late{border-left-color:#ef4444}.calendar-item.ok{border-left-color:#10b981}
 .note31{font-size:12px;color:#8fa0b8;line-height:1.45;margin-top:10px}
 </style></head><body><main>
-<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.1.3</b></div></div><span class="badge" id="status">Prêt</span></header>
+<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.1.4</b></div></div><span class="badge" id="status">Prêt</span></header>
 <nav class="tabs" style="display:none" aria-label="Navigation">
 <button class="tab active" data-view="dashboard">Dashboard</button>
 <button class="tab" data-view="import">Facture</button>
@@ -75,7 +75,7 @@ body{padding-bottom:92px}
 
 <section id="v31-factures" class="v31view">
   <div class="super-title"><h2>Factures</h2><div class="period" id="invoiceCount">0</div></div>
-  <button class="primary31" id="v31AddInvoice">＋ Ajouter une facture PDF</button>
+  <label class="primary31" id="v31AddInvoice" for="file" style="display:block;text-align:center;box-sizing:border-box;cursor:pointer">＋ Ajouter une facture PDF</label>
   <div id="invoiceList31"></div>
 </section>
 
@@ -233,6 +233,10 @@ $("restoreData").addEventListener("change",async e=>{
  const f=e.target.files[0];if(!f)return;
  try{const d=JSON.parse(await f.text());if(!Array.isArray(d.history))throw Error("sauvegarde invalide");
  localStorage.setItem("rfh",JSON.stringify(d.history));localStorage.setItem("rfstates",JSON.stringify(d.states||{}));
+hist();$("msg").textContent="Sauvegarde restaurée."}
+ catch(err){$("msg").textContent="Restauration impossible : "+err.message}
+});
+
 // ===== Robot Factures V3.1 =====
 const RF31_KEY="rf31_settings";
 let rf31SelectedMonth=null;
@@ -350,9 +354,8 @@ const rf31Obs=new MutationObserver(()=>{if($("status").textContent==="Calculé")
 rf31Obs.observe($("status"),{childList:true,subtree:true});
 rf31Render();
 
-hist();$("msg").textContent="Sauvegarde restaurée."}
- catch(err){$("msg").textContent="Restauration impossible : "+err.message}
-});
+
+
 
 function selectView(name){
  document.querySelectorAll(".view").forEach(v=>v.classList.add("hiddenView"));
@@ -390,11 +393,22 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js");
     var el=document.getElementById(id);
     if(el) el.addEventListener("click",function(ev){ev.preventDefault();switchView(name);},{passive:false});
   }
+  function initPdfPicker(){
+    var add=document.getElementById("v31AddInvoice");
+    var file=document.getElementById("file");
+    if(add && file){
+      add.addEventListener("click",function(ev){
+        ev.preventDefault();
+        file.click();
+      },{passive:false});
+    }
+  }
   function initNav(){
     bind("navSupervision","supervision");
     bind("navFactures","factures");
     bind("navCalendar","calendar");
     bind("navSettings","settings");
+    initPdfPicker();
     switchView("supervision");
   }
   window.rf31SwitchView=switchView;
