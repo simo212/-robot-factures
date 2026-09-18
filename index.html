@@ -54,7 +54,7 @@ body{padding-bottom:92px}
 .calendar-item{border-left:4px solid #64748b;background:#121d2d;border-radius:10px;padding:12px 14px;margin:9px 0}.calendar-item.warn{border-left-color:#f59e0b}.calendar-item.late{border-left-color:#ef4444}.calendar-item.ok{border-left-color:#10b981}
 .note31{font-size:12px;color:#8fa0b8;line-height:1.45;margin-top:10px}
 </style></head><body><main>
-<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.1.5</b></div></div><span class="badge" id="status">Prêt</span></header>
+<header><div><h1>Robot Factures</h1><div class="muted">TVA • URSSAF • échéances <b style="color:#60a5fa">V3.1.6</b></div></div><span class="badge" id="status">Prêt</span></header>
 <nav class="tabs" style="display:none" aria-label="Navigation">
 <button class="tab active" data-view="dashboard">Dashboard</button>
 <button class="tab" data-view="import">Facture</button>
@@ -75,7 +75,8 @@ body{padding-bottom:92px}
 
 <section id="v31-factures" class="v31view">
   <div class="super-title"><h2>Factures</h2><div class="period" id="invoiceCount">0</div></div>
-  <label class="primary31" id="v31AddInvoice" for="file" style="display:block;text-align:center;box-sizing:border-box;cursor:pointer">＋ Ajouter une facture PDF</label>
+  <label class="primary31" id="v31AddInvoice" for="file31" style="display:block;text-align:center;box-sizing:border-box;cursor:pointer">＋ Ajouter une facture PDF</label>
+  <input id="file31" type="file" accept="application/pdf,.pdf" style="position:absolute;width:1px;height:1px;opacity:.001;pointer-events:none">
   <div id="importFeedback31" class="note31">Choisis un PDF dans Fichiers. Après analyse, il apparaîtra ici automatiquement.</div>
   <div id="invoiceList31"></div>
 </section>
@@ -336,7 +337,7 @@ function rf31View(name){
  }catch(e){console.error("navigation",e)}
 }
 /* Navigation V3.1.2 gérée par onclick inline pour compatibilité iOS PWA */
-$("v31AddInvoice").onclick=()=>{const f=$("file");if(f)f.click();else alert("Sélecteur PDF indisponible");};
+/* V3.1.6 : le label ouvre directement file31 via HTML natif iOS */
 
 let cfg=rf31Settings();$("setUrssaf").value=cfg.urssaf;$("setCfp").value=cfg.cfp;$("setVat").value=cfg.vat;$("setDeduct").value=cfg.deductible;$("setLag").value=cfg.lag;
 $("saveSettings31").onclick=()=>{
@@ -374,9 +375,31 @@ function selectView(name){
 }
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>selectView(b.dataset.view)));
 
-$("file").addEventListener("change",async e=>{let f=e.target.files[0];if(!f)return;$("status").textContent="Analyse…";$("msg").textContent="Analyse locale du PDF…";try{
-let pdf=await pdfjs.getDocument({data:await f.arrayBuffer()}).promise,t="";for(let i=1;i<=pdf.numPages;i++){let p=await pdf.getPage(i),c=await p.getTextContent();t+=c.items.map(z=>z.str).join(" ")+"\\n"}
-let d=parse(t);diagnostics(d);if(!d.date||d.ht===null||d.tva===null||d.ttc===null){let m=[];if(!d.date)m.push("date");if(d.ht===null)m.push("HT");if(d.tva===null)m.push("TVA");if(d.ttc===null)m.push("TTC");throw Error("champ(s) non reconnu(s) : "+m.join(", "))}show(d);save(d);try{rf31Render();rf31View("factures")}catch(_e){}$("msg").textContent="Facture analysée et enregistrée.";e.target.value=""}catch(e){reset();$("status").textContent="À vérifier";$("msg").textContent="Analyse impossible : "+e.message}});
+async function analysePdfInput(e){
+ let f=e.target.files&&e.target.files[0]; if(!f)return;
+ const fb=$("importFeedback31");
+ if(fb)fb.textContent="PDF sélectionné : "+f.name+" — analyse en cours…";
+ $("status").textContent="Analyse…";$("msg").textContent="Analyse locale du PDF…";
+ try{
+   let buf=await f.arrayBuffer();
+   let pdf=await pdfjs.getDocument({data:new Uint8Array(buf),disableWorker:true}).promise,t="";
+   for(let i=1;i<=pdf.numPages;i++){let pg=await pdf.getPage(i),c=await pg.getTextContent();t+=c.items.map(z=>z.str).join(" ")+"\\n"}
+   let d=parse(t);diagnostics(d);
+   if(!d.date||d.ht===null||d.tva===null||d.ttc===null){
+     let m=[];if(!d.date)m.push("date");if(d.ht===null)m.push("HT");if(d.tva===null)m.push("TVA");if(d.ttc===null)m.push("TTC");
+     throw Error("champ(s) non reconnu(s) : "+m.join(", "));
+   }
+   show(d);save(d);rf31Render();
+   if(fb)fb.textContent="✓ "+f.name+" importée — "+rf31Money(d.ttc);
+   $("msg").textContent="Facture analysée et enregistrée.";
+ }catch(err){
+   $("status").textContent="À vérifier";
+   $("msg").textContent="Analyse impossible : "+err.message;
+   if(fb)fb.textContent="Échec de l’analyse : "+err.message;
+ }finally{e.target.value=""}
+}
+$("file").addEventListener("change",analysePdfInput);
+$("file31").addEventListener("change",analysePdfInput);
 $("reset").addEventListener("click",()=>{reset();$("file").value="";$("msg").textContent="Dashboard réinitialisé."});$("clear").addEventListener("click",()=>{localStorage.removeItem("rfh");hist()});hist();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js");
 </script></main>
@@ -402,22 +425,11 @@ if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js");
     var el=document.getElementById(id);
     if(el) el.addEventListener("click",function(ev){ev.preventDefault();switchView(name);},{passive:false});
   }
-  function initPdfPicker(){
-    var add=document.getElementById("v31AddInvoice");
-    var file=document.getElementById("file");
-    if(add && file){
-      add.addEventListener("click",function(ev){
-        ev.preventDefault();
-        file.click();
-      },{passive:false});
-    }
-  }
   function initNav(){
     bind("navSupervision","supervision");
     bind("navFactures","factures");
     bind("navCalendar","calendar");
     bind("navSettings","settings");
-    initPdfPicker();
     switchView("supervision");
   }
   window.rf31SwitchView=switchView;
